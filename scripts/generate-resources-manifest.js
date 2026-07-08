@@ -15,6 +15,10 @@ const BLOB_BASE = process.env.REPO_BLOB_BASE || `https://github.com/${REPO_OWNER
 const PAGES_URL = process.env.PAGES_URL || `https://${REPO_OWNER}.github.io/${REPO_NAME}/`;
 const MAX_GITHUB_FILE_SIZE = 100 * 1024 * 1024;
 const LARGE_FILE_SIZE = 50 * 1024 * 1024;
+const titleCollator = new Intl.Collator("en", {
+  numeric: true,
+  sensitivity: "base"
+});
 
 const categoryMap = new Map([
   ["bio", {
@@ -222,10 +226,7 @@ function main() {
     });
   }
 
-  resources.sort((a, b) => {
-    const categoryCompare = a.category.localeCompare(b.category);
-    return categoryCompare || a.title.localeCompare(b.title);
-  });
+  resources.sort(compareResources);
 
   const categories = buildCategories(resources);
   const manifest = {
@@ -377,7 +378,26 @@ function buildCategories(resources) {
         totalSizeLabel: formatSize(stats.totalSize)
       };
     })
-    .sort((a, b) => a.title.localeCompare(b.title));
+    .sort((a, b) => titleCollator.compare(a.title, b.title));
+}
+
+function compareResources(a, b) {
+  const categoryCompare = titleCollator.compare(a.category, b.category);
+  if (categoryCompare) {
+    return categoryCompare;
+  }
+  const titleCompare = titleCollator.compare(normalizeTitleForSort(a.title), normalizeTitleForSort(b.title));
+  if (titleCompare) {
+    return titleCompare;
+  }
+  return titleCollator.compare(a.originalFilename || "", b.originalFilename || "");
+}
+
+function normalizeTitleForSort(title) {
+  return String(title || "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function renderUploadReport(context) {

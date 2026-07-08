@@ -52,6 +52,11 @@
     other: "FILE"
   };
 
+  var titleCollator = new Intl.Collator("en", {
+    numeric: true,
+    sensitivity: "base"
+  });
+
   fetch("resources.json", { cache: "no-store" })
     .then(function (response) {
       if (!response.ok) {
@@ -60,8 +65,8 @@
       return response.json();
     })
     .then(function (data) {
-      state.resources = Array.isArray(data.resources) ? data.resources : [];
-      state.categories = Array.isArray(data.categories) ? data.categories : [];
+      state.resources = (Array.isArray(data.resources) ? data.resources : []).slice().sort(compareResources);
+      state.categories = (Array.isArray(data.categories) ? data.categories : []).slice().sort(compareCategories);
       renderFilters();
       render();
     })
@@ -126,6 +131,19 @@
     }
   });
 
+  els.previewBody.addEventListener("click", function (event) {
+    var modeButton = event.target.closest("[data-preview-mode]");
+    if (!modeButton) {
+      return;
+    }
+    var resource = state.resources.find(function (item) {
+      return item.id === modeButton.getAttribute("data-preview-resource-id");
+    });
+    if (resource) {
+      renderFramePreview(resource, modeButton.getAttribute("data-preview-mode"));
+    }
+  });
+
   document.addEventListener("keydown", function (event) {
     if (event.key === "Escape" && !els.modal.hidden) {
       closePreview();
@@ -157,7 +175,7 @@
 
     renderCategories();
 
-    var filtered = state.resources.filter(matchesFilters);
+    var filtered = state.resources.filter(matchesFilters).sort(compareResources);
     els.activeSummary.textContent = summarizeActiveFilters(filtered.length);
     els.resultCount.textContent = filtered.length + " shown";
     els.emptyState.hidden = filtered.length > 0;
@@ -247,11 +265,12 @@
     els.previewTitle.textContent = resource.title;
     els.previewMeta.textContent = [resource.category, resource.fileTypeLabel || typeLabels[resource.fileType], resource.fileSizeLabel].filter(Boolean).join(" / ");
     els.openGithub.href = resource.githubUrl;
+    els.openGithub.textContent = "Open file page";
     els.downloadFile.href = resource.downloadUrl;
     els.previewBody.innerHTML = "";
 
-    if (resource.previewMode === "pdf") {
-      els.previewBody.innerHTML = '<iframe title="' + escapeAttribute(resource.title) + '" src="' + escapeAttribute(resource.previewUrl) + '"></iframe>';
+    if (hasFramePreview(resource)) {
+      renderFramePreview(resource, defaultPreviewMode(resource));
     } else if (resource.previewMode === "image") {
       els.previewBody.innerHTML = '<img alt="' + escapeAttribute(resource.title) + '" src="' + escapeAttribute(resource.previewUrl) + '">';
     } else if (resource.previewMode === "video") {
@@ -279,6 +298,82 @@
     document.body.classList.add("no-scroll");
   }
 
+  function renderFramePreview(resource, mode) {
+    var modes = previewModes(resource);
+    var activeMode = modes.some(function (item) {
+      return item.id === mode;
+    }) ? mode : modes[0].id;
+    var active = modes.find(function (item) {
+      return item.id === activeMode;
+    });
+    var controls = modes.map(function (item) {
+      var selected = item.id === activeMode ? " is-active" : "";
+      return [
+        '<button class="preview-mode-button' + selected + '" type="button"',
+        ' data-preview-resource-id="' + escapeAttribute(resource.id) + '"',
+        ' data-preview-mode="' + escapeAttribute(item.id) + '">',
+        escapeHtml(item.label),
+        '</button>'
+      ].join("");
+    }).join("");
+
+    els.previewBody.innerHTML = [
+      '<div class="preview-frame-shell">',
+      '  <div class="preview-toolbar">',
+      '    <div class="preview-mode-group" aria-label="Preview mode">' + controls + '</div>',
+      '    <p>Preview is loading. If it stays blank, switch viewer or open the file page.</p>',
+      '  </div>',
+      '  <iframe class="preview-frame" title="' + escapeAttribute(resource.title) + '" src="' + escapeAttribute(active.url) + '"></iframe>',
+      '</div>'
+    ].join("");
+  }
+
+  function hasFramePreview(resource) {
+    return resource.previewMode === "pdf" || (resource.previewMode === "none" && ["document", "presentation", "spreadsheet"].includes(resource.fileType));
+  }
+
+  function defaultPreviewMode(resource) {
+    if (resource.previewMode === "pdf") {
+      return "pdfjs";
+    }
+    return "office";
+  }
+
+  function previewModes(resource) {
+    var encodedUrl = encodeURIComponent(resource.previewUrl);
+    if (resource.previewMode === "pdf") {
+      return [
+        {
+          id: "pdfjs",
+          label: "PDF viewer",
+          url: "https://mozilla.github.io/pdf.js/web/viewer.html?file=" + encodedUrl
+        },
+        {
+          id: "google",
+          label: "Google viewer",
+          url: "https://docs.google.com/gview?embedded=1&url=" + encodedUrl
+        },
+        {
+          id: "raw",
+          label: "Raw file",
+          url: resource.previewUrl
+        }
+      ];
+    }
+    return [
+      {
+        id: "office",
+        label: "Office viewer",
+        url: "https://view.officeapps.live.com/op/embed.aspx?src=" + encodedUrl
+      },
+      {
+        id: "google",
+        label: "Google viewer",
+        url: "https://docs.google.com/gview?embedded=1&url=" + encodedUrl
+      }
+    ];
+  }
+
   function renderUnsupportedPreview(resource) {
     els.previewBody.innerHTML = [
       '<div class="preview-message">',
@@ -300,6 +395,29 @@
     return values.filter(function (value, index, array) {
       return value && array.indexOf(value) === index;
     });
+  }
+
+  function compareResources(a, b) {
+    var categoryCompare = compareCategories({ title: a.category }, { title: b.category });
+    if (categoryCompare) {
+      return categoryCompare;
+    }
+    var titleCompare = titleCollator.compare(normalizeTitleForSort(a.title), normalizeTitleForSort(b.title));
+    if (titleCompare) {
+      return titleCompare;
+    }
+    return titleCollator.compare(a.originalFilename || "", b.originalFilename || "");
+  }
+
+  function compareCategories(a, b) {
+    return titleCollator.compare(a.title || "", b.title || "");
+  }
+
+  function normalizeTitleForSort(title) {
+    return String(title || "")
+      .replace(/[_-]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
   function formatSize(bytes) {
