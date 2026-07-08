@@ -1,0 +1,331 @@
+(function () {
+  var state = {
+    resources: [],
+    categories: [],
+    query: "",
+    category: "all",
+    type: "all"
+  };
+
+  var els = {
+    totalResources: document.getElementById("totalResources"),
+    totalCategories: document.getElementById("totalCategories"),
+    totalSize: document.getElementById("totalSize"),
+    searchInput: document.getElementById("searchInput"),
+    categoryFilter: document.getElementById("categoryFilter"),
+    typeFilter: document.getElementById("typeFilter"),
+    clearFilters: document.getElementById("clearFilters"),
+    categoryGrid: document.getElementById("categoryGrid"),
+    resourceGrid: document.getElementById("resourceGrid"),
+    activeSummary: document.getElementById("activeSummary"),
+    resultCount: document.getElementById("resultCount"),
+    emptyState: document.getElementById("emptyState"),
+    modal: document.getElementById("previewModal"),
+    previewTitle: document.getElementById("previewTitle"),
+    previewMeta: document.getElementById("previewMeta"),
+    previewBody: document.getElementById("previewBody"),
+    openGithub: document.getElementById("openGithub"),
+    downloadFile: document.getElementById("downloadFile")
+  };
+
+  var typeLabels = {
+    pdf: "PDF",
+    document: "Word",
+    presentation: "PowerPoint",
+    spreadsheet: "Spreadsheet",
+    image: "Image",
+    video: "Video",
+    archive: "Archive",
+    text: "Text",
+    other: "Other"
+  };
+
+  var badgeLabels = {
+    pdf: "PDF",
+    document: "DOC",
+    presentation: "PPT",
+    spreadsheet: "XLS",
+    image: "IMG",
+    video: "VID",
+    archive: "ZIP",
+    text: "TXT",
+    other: "FILE"
+  };
+
+  fetch("resources.json", { cache: "no-store" })
+    .then(function (response) {
+      if (!response.ok) {
+        throw new Error("Unable to load resources.json");
+      }
+      return response.json();
+    })
+    .then(function (data) {
+      state.resources = Array.isArray(data.resources) ? data.resources : [];
+      state.categories = Array.isArray(data.categories) ? data.categories : [];
+      renderFilters();
+      render();
+    })
+    .catch(function (error) {
+      els.activeSummary.textContent = error.message;
+      els.resourceGrid.innerHTML = "";
+      els.emptyState.hidden = false;
+    });
+
+  els.searchInput.addEventListener("input", function (event) {
+    state.query = event.target.value.trim().toLowerCase();
+    render();
+  });
+
+  els.categoryFilter.addEventListener("change", function (event) {
+    state.category = event.target.value;
+    render();
+  });
+
+  els.typeFilter.addEventListener("change", function (event) {
+    state.type = event.target.value;
+    render();
+  });
+
+  els.clearFilters.addEventListener("click", function () {
+    state.query = "";
+    state.category = "all";
+    state.type = "all";
+    els.searchInput.value = "";
+    els.categoryFilter.value = "all";
+    els.typeFilter.value = "all";
+    render();
+  });
+
+  els.categoryGrid.addEventListener("click", function (event) {
+    var card = event.target.closest("[data-category]");
+    if (!card) {
+      return;
+    }
+    state.category = card.getAttribute("data-category");
+    els.categoryFilter.value = state.category;
+    render();
+    document.getElementById("resourcesTitle").scrollIntoView({ block: "start" });
+  });
+
+  els.resourceGrid.addEventListener("click", function (event) {
+    var previewButton = event.target.closest("[data-preview-id]");
+    if (!previewButton) {
+      return;
+    }
+    var resource = state.resources.find(function (item) {
+      return item.id === previewButton.getAttribute("data-preview-id");
+    });
+    if (resource) {
+      openPreview(resource);
+    }
+  });
+
+  els.modal.addEventListener("click", function (event) {
+    if (event.target.hasAttribute("data-close-modal")) {
+      closePreview();
+    }
+  });
+
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && !els.modal.hidden) {
+      closePreview();
+    }
+  });
+
+  function renderFilters() {
+    els.categoryFilter.innerHTML = '<option value="all">All subjects</option>' + state.categories.map(function (category) {
+      return '<option value="' + escapeHtml(category.id) + '">' + escapeHtml(category.title) + '</option>';
+    }).join("");
+
+    var types = unique(state.resources.map(function (resource) {
+      return resource.fileType;
+    })).sort();
+
+    els.typeFilter.innerHTML = '<option value="all">All types</option>' + types.map(function (type) {
+      return '<option value="' + escapeHtml(type) + '">' + escapeHtml(typeLabels[type] || type) + '</option>';
+    }).join("");
+  }
+
+  function render() {
+    var totalSize = state.resources.reduce(function (sum, resource) {
+      return sum + (Number(resource.fileSize) || 0);
+    }, 0);
+
+    els.totalResources.textContent = String(state.resources.length);
+    els.totalCategories.textContent = String(state.categories.length);
+    els.totalSize.textContent = formatSize(totalSize);
+
+    renderCategories();
+
+    var filtered = state.resources.filter(matchesFilters);
+    els.activeSummary.textContent = summarizeActiveFilters(filtered.length);
+    els.resultCount.textContent = filtered.length + " shown";
+    els.emptyState.hidden = filtered.length > 0;
+    els.resourceGrid.innerHTML = filtered.map(renderResourceCard).join("");
+  }
+
+  function renderCategories() {
+    els.categoryGrid.innerHTML = state.categories.map(function (category) {
+      var active = state.category === category.id ? " is-active" : "";
+      return [
+        '<button class="category-card' + active + '" type="button" data-category="' + escapeHtml(category.id) + '" style="--accent: ' + escapeHtml(category.accent || "#2265d8") + '">',
+        '  <span class="category-topline">',
+        '    <span class="category-icon" aria-hidden="true">' + escapeHtml(category.shortLabel || category.title.slice(0, 2)) + '</span>',
+        '    <span class="category-count">' + category.count + ' files</span>',
+        '  </span>',
+        '  <span>',
+        '    <h3>' + escapeHtml(category.title) + '</h3>',
+        '    <p>' + escapeHtml(category.description || "") + '</p>',
+        '  </span>',
+        '  <span class="category-size">' + escapeHtml(category.totalSizeLabel || "") + '</span>',
+        '</button>'
+      ].join("");
+    }).join("");
+  }
+
+  function renderResourceCard(resource) {
+    var badge = badgeLabels[resource.fileType] || "FILE";
+    return [
+      '<article class="resource-card">',
+      '  <span class="file-badge" data-kind="' + escapeHtml(resource.fileType) + '">' + escapeHtml(badge) + '</span>',
+      '  <div class="resource-content">',
+      '    <h3>' + escapeHtml(resource.title) + '</h3>',
+      '    <div class="resource-meta">',
+      '      <span>' + escapeHtml(resource.category) + '</span>',
+      '      <span>' + escapeHtml(resource.fileTypeLabel || typeLabels[resource.fileType] || resource.extension) + '</span>',
+      '      <span>' + escapeHtml(resource.fileSizeLabel) + '</span>',
+      '    </div>',
+      '    <p class="resource-description">' + escapeHtml(resource.description || "") + '</p>',
+      '    <div class="resource-actions">',
+      '      <button class="ghost-button" type="button" data-preview-id="' + escapeHtml(resource.id) + '">Preview</button>',
+      '      <a class="primary-button" href="' + escapeAttribute(resource.downloadUrl) + '" target="_blank" rel="noreferrer">Download</a>',
+      '    </div>',
+      '  </div>',
+      '</article>'
+    ].join("");
+  }
+
+  function matchesFilters(resource) {
+    var query = state.query;
+    var categoryMatch = state.category === "all" || resource.categoryId === state.category;
+    var typeMatch = state.type === "all" || resource.fileType === state.type;
+    var queryText = [
+      resource.title,
+      resource.category,
+      resource.fileType,
+      resource.extension,
+      resource.originalFilename,
+      resource.description
+    ].join(" ").toLowerCase();
+    var queryMatch = !query || queryText.includes(query);
+    return categoryMatch && typeMatch && queryMatch;
+  }
+
+  function summarizeActiveFilters(count) {
+    var parts = [];
+    if (state.category !== "all") {
+      var category = state.categories.find(function (item) {
+        return item.id === state.category;
+      });
+      if (category) {
+        parts.push(category.title);
+      }
+    }
+    if (state.type !== "all") {
+      parts.push(typeLabels[state.type] || state.type);
+    }
+    if (state.query) {
+      parts.push('"' + state.query + '"');
+    }
+    if (!parts.length) {
+      return count + " resources across all subjects";
+    }
+    return count + " resources matching " + parts.join(" / ");
+  }
+
+  function openPreview(resource) {
+    els.previewTitle.textContent = resource.title;
+    els.previewMeta.textContent = [resource.category, resource.fileTypeLabel || typeLabels[resource.fileType], resource.fileSizeLabel].filter(Boolean).join(" / ");
+    els.openGithub.href = resource.githubUrl;
+    els.downloadFile.href = resource.downloadUrl;
+    els.previewBody.innerHTML = "";
+
+    if (resource.previewMode === "pdf") {
+      els.previewBody.innerHTML = '<iframe title="' + escapeAttribute(resource.title) + '" src="' + escapeAttribute(resource.previewUrl) + '"></iframe>';
+    } else if (resource.previewMode === "image") {
+      els.previewBody.innerHTML = '<img alt="' + escapeAttribute(resource.title) + '" src="' + escapeAttribute(resource.previewUrl) + '">';
+    } else if (resource.previewMode === "video") {
+      els.previewBody.innerHTML = '<video controls src="' + escapeAttribute(resource.previewUrl) + '"></video>';
+    } else if (resource.previewMode === "text") {
+      els.previewBody.innerHTML = '<pre>Loading preview...</pre>';
+      fetch(resource.previewUrl)
+        .then(function (response) {
+          if (!response.ok) {
+            throw new Error("Preview failed");
+          }
+          return response.text();
+        })
+        .then(function (text) {
+          els.previewBody.innerHTML = '<pre>' + escapeHtml(text) + '</pre>';
+        })
+        .catch(function () {
+          renderUnsupportedPreview(resource);
+        });
+    } else {
+      renderUnsupportedPreview(resource);
+    }
+
+    els.modal.hidden = false;
+    document.body.classList.add("no-scroll");
+  }
+
+  function renderUnsupportedPreview(resource) {
+    els.previewBody.innerHTML = [
+      '<div class="preview-message">',
+      '  <div>',
+      '    <h3>Preview is not available for this file type.</h3>',
+      '    <p>' + escapeHtml(resource.fileTypeLabel || resource.extension || "This resource") + ' files may need to be downloaded and opened with a compatible app.</p>',
+      '  </div>',
+      '</div>'
+    ].join("");
+  }
+
+  function closePreview() {
+    els.modal.hidden = true;
+    els.previewBody.innerHTML = "";
+    document.body.classList.remove("no-scroll");
+  }
+
+  function unique(values) {
+    return values.filter(function (value, index, array) {
+      return value && array.indexOf(value) === index;
+    });
+  }
+
+  function formatSize(bytes) {
+    if (!bytes) {
+      return "0 B";
+    }
+    var units = ["B", "KB", "MB", "GB"];
+    var size = bytes;
+    var unit = 0;
+    while (size >= 1024 && unit < units.length - 1) {
+      size /= 1024;
+      unit += 1;
+    }
+    return (unit === 0 ? size : size.toFixed(size >= 10 ? 1 : 2)) + " " + units[unit];
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function escapeAttribute(value) {
+    return escapeHtml(value).replace(/`/g, "&#096;");
+  }
+})();

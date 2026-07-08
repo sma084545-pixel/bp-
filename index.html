@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="SZZX BP Academic Resources Base">
+    <title>SZZX BP Academic Resources Base</title>
+    <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="assets/styles/main.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="shell header-grid">
+        <div>
+          <p class="eyebrow">Academic Library</p>
+          <h1>SZZX BP Academic Resources Base</h1>
+        </div>
+        <div class="stats-panel" aria-label="Resource library summary">
+          <div>
+            <span id="totalResources">0</span>
+            <small>Resources</small>
+          </div>
+          <div>
+            <span id="totalCategories">0</span>
+            <small>Subjects</small>
+          </div>
+          <div>
+            <span id="totalSize">0 MB</span>
+            <small>Total Size</small>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="toolbar-band" aria-label="Search and filters">
+        <div class="shell toolbar">
+          <label class="search-field">
+            <span class="search-icon" aria-hidden="true"></span>
+            <input id="searchInput" type="search" placeholder="Search resources" autocomplete="off">
+          </label>
+          <label class="select-field">
+            <span>Subject</span>
+            <select id="categoryFilter"></select>
+          </label>
+          <label class="select-field">
+            <span>Type</span>
+            <select id="typeFilter"></select>
+          </label>
+          <button id="clearFilters" class="ghost-button" type="button">Clear</button>
+        </div>
+      </section>
+
+      <section class="shell dashboard-section" aria-labelledby="dashboardTitle">
+        <div class="section-heading">
+          <h2 id="dashboardTitle">Dashboard</h2>
+          <span id="activeSummary">Loading resources...</span>
+        </div>
+        <div id="categoryGrid" class="category-grid"></div>
+      </section>
+
+      <section class="shell resource-section" aria-labelledby="resourcesTitle">
+        <div class="section-heading">
+          <h2 id="resourcesTitle">Resources</h2>
+          <span id="resultCount">0 shown</span>
+        </div>
+        <div id="resourceGrid" class="resource-grid"></div>
+        <p id="emptyState" class="empty-state" hidden>No matching resources.</p>
+      </section>
+    </main>
+
+    <div id="previewModal" class="modal" hidden>
+      <div class="modal-backdrop" data-close-modal></div>
+      <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="previewTitle">
+        <header class="modal-header">
+          <div>
+            <p id="previewMeta" class="preview-meta"></p>
+            <h2 id="previewTitle"></h2>
+          </div>
+          <button class="close-button" type="button" data-close-modal aria-label="Close preview">x</button>
+        </header>
+        <div id="previewBody" class="preview-body"></div>
+        <footer class="modal-footer">
+          <a id="openGithub" class="ghost-button" target="_blank" rel="noreferrer">Open in GitHub</a>
+          <a id="downloadFile" class="primary-button" target="_blank" rel="noreferrer">Download</a>
+        </footer>
+      </section>
+    </div>
+
+    <script src="assets/scripts/app.js" defer></script>
+  </body>
+</html>

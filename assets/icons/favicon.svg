@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Academic resources">
+  <rect width="64" height="64" rx="12" fill="#10243f"/>
+  <path d="M15 18h24a7 7 0 0 1 7 7v25H22a7 7 0 0 1-7-7Z" fill="#ffffff"/>
+  <path d="M22 25h17M22 32h17M22 39h11" stroke="#2265d8" stroke-width="4" stroke-linecap="round"/>
+  <path d="M43 17h6v32h-6z" fill="#178464"/>
+</svg>
