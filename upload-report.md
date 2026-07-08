@@ -44,18 +44,11 @@ No obvious sensitive filenames were found.
 
 ## Upload Status
 
-Local repository preparation is complete, but remote upload is blocked by GitHub authentication on this computer.
+Upload and deployment completed successfully.
 
-- Local Git commit created: `Build academic resources library`
-- HTTPS push failed: `fatal: could not read Username for 'https://github.com': Device not configured`
-- SSH access check failed: `Could not read from remote repository`
-- Required action: authenticate Git for `sma084545-pixel/bp-`, then push the local commit.
+- GitHub repository push completed: `sma084545-pixel/bp-`
+- GitHub Pages enabled with GitHub Actions as the deployment source.
+- Deployment workflow completed successfully.
+- Live site: https://sma084545-pixel.github.io/bp-/
 
-Recommended manual push after authentication:
-
-```bash
-cd /Users/maxiao/Documents/Codex/2026-07-08/bang/work/bp-repo
-git push origin main
-```
-
-If this repository will keep growing, install and configure Git LFS before adding more files over 50 MB.
+GitHub accepted the current files. It emitted a warning for `resources/Chemistry/11-3-le-chatelier.pptx` because the file is over GitHub's recommended 50 MB size, but the file is below the 100 MB hard limit and was uploaded. If this repository will keep growing, install and configure Git LFS before adding more large files.
