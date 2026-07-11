@@ -83,3 +83,17 @@ If GitHub Pages is not enabled yet, open the repository settings and set Pages t
 ## File Safety Rules
 
 The generator skips hidden/system files such as `.DS_Store`, temporary files, dependency folders, and filenames that appear to contain secrets or private identity documents. It does not delete, move, or modify the original desktop source folder.
+
+## Supabase Minimal Auth Integration
+
+This static GitHub Pages site uses Supabase Auth for sign-in/sign-up and records signed-in users' resource preview/download events.
+
+Required Supabase settings:
+
+- Add `https://sma084545-pixel.github.io/bp-/` to Supabase Auth Site URL or Redirect URLs.
+- Run `supabase/minimal-auth-events.sql` in the Supabase SQL Editor.
+- Keep Row Level Security enabled on `bp_resource_events`.
+- Only use the publishable key in frontend code.
+- Never expose service role keys or secret keys in this repository.
+
+This first phase does not protect the resource files themselves. Since the repository and GitHub Pages assets are public, resource URLs remain public. True file-level protection would require moving files to a private storage bucket or a backend that issues signed URLs.

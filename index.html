@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="SZZX BP Academic Resources Base">
     <title>SZZX BP Academic Resources Base</title>
-    <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="assets/styles/main.css">
+    <link rel="icon" href="./assets/icons/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="./assets/styles/main.css">
   </head>
   <body>
     <header class="site-header">
@@ -29,6 +29,23 @@
             <small>Total Size</small>
           </div>
         </div>
+      </div>
+      <div class="shell">
+        <section id="authPanel" class="auth-panel" aria-label="User authentication">
+          <div id="authSignedOut">
+            <input id="authEmail" type="email" placeholder="Email" autocomplete="email">
+            <input id="authPassword" type="password" placeholder="Password" autocomplete="current-password">
+            <button id="signInButton" type="button">Sign in</button>
+            <button id="signUpButton" type="button">Sign up</button>
+          </div>
+
+          <div id="authSignedIn" hidden>
+            <span id="authUserEmail"></span>
+            <button id="signOutButton" type="button">Sign out</button>
+          </div>
+
+          <p id="authMessage" class="auth-message" role="status"></p>
+        </section>
       </div>
     </header>
 
@@ -87,6 +104,6 @@
       </section>
     </div>
 
-    <script src="assets/scripts/app.js" defer></script>
+    <script type="module" src="./assets/scripts/app.js"></script>
   </body>
 </html>

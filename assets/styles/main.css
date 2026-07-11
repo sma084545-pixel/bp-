@@ -120,6 +120,62 @@ h2 {
   font-size: 0.78rem;
 }
 
+.auth-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0 0 30px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.75rem;
+}
+
+#authSignedOut,
+#authSignedIn {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+#authSignedOut[hidden],
+#authSignedIn[hidden] {
+  display: none;
+}
+
+.auth-panel input {
+  min-width: 12rem;
+  min-height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ink);
+  padding: 0.5rem 0.6rem;
+}
+
+.auth-panel button {
+  min-height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ink);
+  padding: 0 0.75rem;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.auth-message {
+  min-height: 1.25rem;
+  margin: 0;
+  color: #d8e5f5;
+  font-size: 0.9rem;
+}
+
+.auth-message.is-error {
+  color: #ffd0cd;
+}
+
 .toolbar-band {
   position: sticky;
   top: 0;
@@ -638,6 +694,11 @@ h2 {
 
   .stats-panel {
     grid-template-columns: 1fr;
+  }
+
+  .auth-panel input,
+  .auth-panel button {
+    width: 100%;
   }
 
   .section-heading {

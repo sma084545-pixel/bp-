@@ -1,3 +1,5 @@
+import { supabase } from "./supabaseClient.js";
+
 (function () {
   var state = {
     resources: [],
@@ -57,7 +59,9 @@
     sensitivity: "base"
   });
 
-  fetch("resources.json", { cache: "no-store" })
+  initializeAuth();
+
+  fetch("./resources.json", { cache: "no-store" })
     .then(function (response) {
       if (!response.ok) {
         throw new Error("Unable to load resources.json");
@@ -114,20 +118,40 @@
 
   els.resourceGrid.addEventListener("click", function (event) {
     var previewButton = event.target.closest("[data-preview-id]");
-    if (!previewButton) {
+    if (previewButton) {
+      var previewResource = state.resources.find(function (item) {
+        return item.id === previewButton.getAttribute("data-preview-id");
+      });
+      if (previewResource) {
+        openPreview(previewResource);
+      }
       return;
     }
-    var resource = state.resources.find(function (item) {
-      return item.id === previewButton.getAttribute("data-preview-id");
+
+    var downloadLink = event.target.closest("[data-download-id]");
+    if (!downloadLink) {
+      return;
+    }
+    var downloadResource = state.resources.find(function (item) {
+      return item.id === downloadLink.getAttribute("data-download-id");
     });
-    if (resource) {
-      openPreview(resource);
+    if (downloadResource) {
+      logResourceEvent(downloadResource, "download");
     }
   });
 
   els.modal.addEventListener("click", function (event) {
     if (event.target.hasAttribute("data-close-modal")) {
       closePreview();
+    }
+  });
+
+  els.downloadFile.addEventListener("click", function () {
+    var resource = state.resources.find(function (item) {
+      return item.id === els.downloadFile.getAttribute("data-download-id");
+    });
+    if (resource) {
+      logResourceEvent(resource, "download");
     }
   });
 
@@ -216,7 +240,7 @@
       '    <p class="resource-description">' + escapeHtml(resource.description || "") + '</p>',
       '    <div class="resource-actions">',
       '      <button class="ghost-button" type="button" data-preview-id="' + escapeHtml(resource.id) + '">Preview</button>',
-      '      <a class="primary-button" href="' + escapeAttribute(resource.downloadUrl) + '" target="_blank" rel="noreferrer">Download</a>',
+      '      <a class="primary-button" href="' + escapeAttribute(resource.downloadUrl) + '" target="_blank" rel="noreferrer" data-download-id="' + escapeAttribute(resource.id) + '">Download</a>',
       '    </div>',
       '  </div>',
       '</article>'
@@ -262,11 +286,13 @@
   }
 
   function openPreview(resource) {
+    logResourceEvent(resource, "preview");
     els.previewTitle.textContent = resource.title;
     els.previewMeta.textContent = [resource.category, resource.fileTypeLabel || typeLabels[resource.fileType], resource.fileSizeLabel].filter(Boolean).join(" / ");
     els.openGithub.href = resource.githubUrl;
     els.openGithub.textContent = "Open file page";
     els.downloadFile.href = resource.downloadUrl;
+    els.downloadFile.setAttribute("data-download-id", resource.id || "");
     els.previewBody.innerHTML = "";
 
     if (hasFramePreview(resource)) {
@@ -389,6 +415,148 @@
     els.modal.hidden = true;
     els.previewBody.innerHTML = "";
     document.body.classList.remove("no-scroll");
+  }
+
+  async function getCurrentUser() {
+    var result = await supabase.auth.getUser();
+    if (result.error) {
+      console.warn("Unable to get current user:", result.error.message);
+      return null;
+    }
+    return result.data.user;
+  }
+
+  function setAuthMessage(message, isError) {
+    var messageElement = document.getElementById("authMessage");
+    if (!messageElement) {
+      return;
+    }
+    messageElement.textContent = message || "";
+    messageElement.classList.toggle("is-error", Boolean(isError));
+  }
+
+  function renderAuthState(user) {
+    var signedOut = document.getElementById("authSignedOut");
+    var signedIn = document.getElementById("authSignedIn");
+    var userEmail = document.getElementById("authUserEmail");
+
+    if (!signedOut || !signedIn || !userEmail) {
+      return;
+    }
+
+    if (user) {
+      signedOut.hidden = true;
+      signedIn.hidden = false;
+      userEmail.textContent = "Signed in as " + user.email;
+    } else {
+      signedOut.hidden = false;
+      signedIn.hidden = true;
+      userEmail.textContent = "";
+    }
+  }
+
+  function setupAuthUI() {
+    var emailInput = document.getElementById("authEmail");
+    var passwordInput = document.getElementById("authPassword");
+    var signInButton = document.getElementById("signInButton");
+    var signUpButton = document.getElementById("signUpButton");
+    var signOutButton = document.getElementById("signOutButton");
+
+    if (!emailInput || !passwordInput || !signInButton || !signUpButton || !signOutButton) {
+      console.warn("Auth UI elements not found.");
+      return;
+    }
+
+    signInButton.addEventListener("click", async function () {
+      var email = emailInput.value.trim();
+      var password = passwordInput.value;
+
+      if (!email || !password) {
+        setAuthMessage("Please enter both email and password.", true);
+        return;
+      }
+
+      setAuthMessage("Signing in...");
+      var result = await supabase.auth.signInWithPassword({ email: email, password: password });
+      if (result.error) {
+        setAuthMessage(result.error.message, true);
+        return;
+      }
+
+      setAuthMessage("Signed in successfully.");
+    });
+
+    signUpButton.addEventListener("click", async function () {
+      var email = emailInput.value.trim();
+      var password = passwordInput.value;
+
+      if (!email || !password) {
+        setAuthMessage("Please enter both email and password.", true);
+        return;
+      }
+
+      setAuthMessage("Creating account...");
+      var result = await supabase.auth.signUp({ email: email, password: password });
+      if (result.error) {
+        setAuthMessage(result.error.message, true);
+        return;
+      }
+
+      setAuthMessage("Account created. If email confirmation is enabled, please check your inbox.");
+    });
+
+    signOutButton.addEventListener("click", async function () {
+      setAuthMessage("Signing out...");
+      var result = await supabase.auth.signOut();
+      if (result.error) {
+        setAuthMessage(result.error.message, true);
+        return;
+      }
+
+      setAuthMessage("Signed out.");
+    });
+  }
+
+  async function initializeAuth() {
+    setupAuthUI();
+
+    try {
+      var result = await supabase.auth.getSession();
+      if (result.error) {
+        console.warn("Unable to get auth session:", result.error.message);
+      }
+      var session = result.data && result.data.session;
+      renderAuthState(session ? session.user : null);
+    } catch (error) {
+      console.warn("Unable to initialize auth:", error);
+      renderAuthState(null);
+    }
+
+    supabase.auth.onAuthStateChange(function (_event, session) {
+      renderAuthState(session ? session.user : null);
+    });
+  }
+
+  async function logResourceEvent(resource, eventType) {
+    try {
+      var user = await getCurrentUser();
+      if (!user) {
+        return;
+      }
+
+      var resourceId = resource.id || resource.originalFilename || resource.title || resource.downloadUrl || "unknown-resource";
+      var result = await supabase.from("bp_resource_events").insert({
+        user_id: user.id,
+        resource_id: String(resourceId),
+        event_type: eventType
+      });
+
+      if (result.error) {
+        console.warn("Failed to log resource event:", result.error.message);
+      }
+    } catch (error) {
+      console.warn("Unexpected error while logging resource event:", error);
+    }
   }
 
   function unique(values) {
